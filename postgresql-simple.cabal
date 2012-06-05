@@ -34,6 +34,9 @@ Library
   Other-modules:
      Database.PostgreSQL.Simple.Compat
 
+  if os(windows)
+    C-sources: cbits/waitSocket.c
+
   Build-depends:
     attoparsec >= 0.8.5.3,
     base < 5,
@@ -41,6 +44,7 @@ Library
     blaze-textual,
     bytestring >= 0.9,
     containers,
+    network,
     postgresql-libpq >= 0.6.2,
     old-locale,
     template-haskell,

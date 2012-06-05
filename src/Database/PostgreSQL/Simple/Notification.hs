@@ -22,9 +22,9 @@ module Database.PostgreSQL.Simple.Notification
      , getNotificationNonBlocking
      ) where
 
-import           Control.Concurrent ( threadWaitRead )
 import           Control.Monad ( when )
 import qualified Data.ByteString as B
+import           Database.PostgreSQL.Simple.Compat ( threadWaitRead )
 import           Database.PostgreSQL.Simple.Internal
 import qualified Database.PostgreSQL.LibPQ as PQ
 import           System.Posix.Types ( CPid )
