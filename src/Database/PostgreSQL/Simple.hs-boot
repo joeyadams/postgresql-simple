@@ -6,8 +6,10 @@ module Database.PostgreSQL.Simple
      , execute
      , execute_
      , executeMany
+     , formatQuery
      ) where
 
+import Data.ByteString(ByteString)
 import Data.Int(Int64)
 import Database.PostgreSQL.Simple.Internal
 import Database.PostgreSQL.Simple.Types
@@ -21,3 +23,5 @@ query_ :: FromRow r => Connection -> Query -> IO [r]
 execute :: ToRow q => Connection -> Query -> q -> IO Int64
 
 executeMany :: ToRow q => Connection -> Query -> [q] -> IO Int64
+
+formatQuery :: ToRow q => Connection -> Query -> q -> IO ByteString
