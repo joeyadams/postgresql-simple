@@ -113,7 +113,7 @@ import           Blaze.ByteString.Builder
 import           Blaze.ByteString.Builder.Char8 (fromChar)
 import           Control.Applicative ((<$>), pure)
 import           Control.Exception
-                   ( Exception, throw, throwIO, finally )
+                   ( Exception, throw, throwIO, bracket )
 import           Control.Monad (foldM)
 import           Data.ByteString (ByteString)
 import           Data.Int (Int64)
@@ -121,6 +121,7 @@ import           Data.List (intersperse)
 import           Data.Monoid (mconcat)
 import           Data.Typeable (Typeable)
 import           Database.PostgreSQL.Simple.Compat ( (<>) )
+import           Database.PostgreSQL.Simple.Cursor
 import           Database.PostgreSQL.Simple.FromField (ResultError(..))
 import           Database.PostgreSQL.Simple.FromRow (FromRow(..))
 import           Database.PostgreSQL.Simple.Ok
@@ -463,7 +464,7 @@ doFold :: ( FromRow row )
        -> a
        -> (a -> row -> IO a)
        -> IO a
-doFold FoldOptions{..} conn _template q a f = do
+doFold FoldOptions{..} conn _template q a0 f = do
     stat <- withConnection conn PQ.transactionStatus
     case stat of
       PQ.TransIdle    -> withTransactionMode transactionMode conn go
@@ -481,10 +482,13 @@ doFold FoldOptions{..} conn _template q a f = do
       PQ.TransUnknown -> fail "foldWithOpts FIXME:  PQ.TransUnknown"
          -- Not sure what this means.
   where
-    go = do
-       -- FIXME:  what about name clashes with already-declared cursors?
-       _ <- execute_ conn ("DECLARE fold NO SCROLL CURSOR FOR " <> q)
-       loop a `finally` execute_ conn "CLOSE fold"
+    go = bracket (declareCursor_ defaultCursorOptions conn q)
+                 closeCursor
+                 $ \cursor ->
+         let loop a = do
+                 rs <- fetchCursor cursor (Forward chunkSize)
+                 if null rs then return a else foldM f a rs >>= loop
+          in loop a0
 
 -- FIXME: choose the Automatic chunkSize more intelligently
 --   One possibility is to use the type of the results,  although this
@@ -495,9 +499,6 @@ doFold FoldOptions{..} conn _template q a f = do
     chunkSize = case fetchQuantity of
                  Automatic   -> 256
                  Fixed n     -> n
-    loop a = do
-      rs <- query conn "FETCH FORWARD ? FROM fold" (Only chunkSize)
-      if null rs then return a else foldM f a rs >>= loop
 
 -- | A version of 'fold' that does not transform a state value.
 forEach :: (ToRow q, FromRow r) =>
